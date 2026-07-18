@@ -44,7 +44,7 @@ export default function WavebackScreen({
   const song = songs[songIdx];
   const dur = song.dur;
   const hasAudio = !!song.audio;
-  const audio = useWavebackAudio(song.audio ?? null);
+  const audio = useWavebackAudio(song.audio ?? null, song.karaokeAudio ?? null);
 
   // Era chip → audio processing (TIME DOWN eras sound like their device; web only for now)
   useEffect(() => {
@@ -150,8 +150,11 @@ export default function WavebackScreen({
           <Hairline />
         </View>
         <View className="flex-row justify-center gap-3 px-4">
-          {TIME_UP.map(e => (
-            <EraChip key={e.id} era={e} active={era === e.id} plate={T.plate} mut={T.mut} beatMs={beatMs} playing={playing} onPress={() => pick(e.id)} />
+          {TIME_UP.map((e, i) => (
+            <React.Fragment key={e.id}>
+              {i > 0 && <View className="w-[106px]" /> /* keep the outer positions; the disc owns the middle */}
+              <EraChip era={e} active={era === e.id} plate={T.plate} mut={T.mut} beatMs={beatMs} playing={playing} onPress={() => pick(e.id)} />
+            </React.Fragment>
           ))}
         </View>
 

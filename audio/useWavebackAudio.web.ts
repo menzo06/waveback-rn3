@@ -23,15 +23,16 @@ import type { WavebackAudioApi } from './types';
  *   shelved off above ~7.5 kHz, gentle tape squash/saturation, wow ≈0.14%
  *   plus fast flutter "shimmer" ≈0.12%.
  *
- * CLEAN / MASTER / ULTRA and no era play the file untouched (flat chain).
+ * MASTER (MIXING) and no era play the file untouched (flat chain).
  */
 
-type EraKey = 'flat' | 'vinyl' | 'radio' | 'cassette';
+type EraKey = 'flat' | 'vinyl' | 'radio' | 'cassette' | 'karaoke';
 
 const ERA_TO_KEY: Partial<Record<EraId, EraKey>> = {
   VINYL: 'vinyl',
   RADIO: 'radio',
   CASSETTE: 'cassette',
+  CLEAN: 'karaoke', // KARAOKE · SING ALONG chip keeps the legacy CLEAN id
 };
 
 interface NoiseLoop { start(): void; stop(): void; }
@@ -45,7 +46,9 @@ class EraEngine {
   private chains: Record<EraKey, Chain>;
   active: EraKey = 'flat';
 
-  private buffer: AudioBuffer | null = null;
+  private mainBuffer: AudioBuffer | null = null;
+  private karaokeBuffer: AudioBuffer | null = null; // pre-separated instrumental, time-aligned
+  private routedChain: EraKey = 'flat';
   private src: AudioBufferSourceNode | null = null;
   private offset = 0;
   private startedAt = 0;
@@ -68,6 +71,7 @@ class EraEngine {
       vinyl: this.buildVinyl(),
       radio: this.buildRadio(),
       cassette: this.buildCassette(),
+      karaoke: this.buildKaraoke(),
     };
     this.bus.connect(this.chains.flat.input);
   }
@@ -265,20 +269,58 @@ class EraEngine {
     return { input, noise: this.loopNoise(() => this.makeHissNoise(), noiseGain) };
   }
 
+  // Classic karaoke centre-cancel: lead vocals sit in the middle of a stereo
+  // mix, so L − R removes them. That also nukes centred bass, so the original
+  // is low-passed back in underneath, plus a whisper of the full mix for body.
+  private buildKaraoke(): Chain {
+    const input = this.ctx.createGain();
+    const split = this.ctx.createChannelSplitter(2);
+    const left = this.ctx.createGain();
+    const right = this.ctx.createGain(); right.gain.value = -1;
+    const side = this.ctx.createGain(); side.gain.value = 1.35;
+    const bassMono = this.mono();
+    const bassLp = this.biquad('lowpass', 180, 0.7);
+    const bass = this.ctx.createGain(); bass.gain.value = 0.65;
+    const bed = this.ctx.createGain(); bed.gain.value = 0.12;
+    const out = this.ctx.createGain(); out.gain.value = 1.0;
+    input.connect(split);
+    split.connect(left, 0); split.connect(right, 1);
+    left.connect(side); right.connect(side);
+    side.connect(out);
+    input.connect(bassMono); bassMono.connect(bassLp); bassLp.connect(bass); bass.connect(out);
+    input.connect(bed); bed.connect(out);
+    out.connect(this.master);
+    return { input, noise: null };
+  }
+
   // ---- transport ----------------------------------------------------------
 
-  async load(source: number): Promise<void> {
+  // The buffer the current era should sound like: the KARAOKE chip plays the
+  // real instrumental when the song ships one; everything else plays the master.
+  private get buffer(): AudioBuffer | null {
+    return this.active === 'karaoke' && this.karaokeBuffer ? this.karaokeBuffer : this.mainBuffer;
+  }
+
+  async load(source: number, karaokeSource?: number | null): Promise<void> {
     const token = ++this.loadToken;
     this.stopSrc();
     this.playing = false;
-    this.buffer = null; this.offset = 0; this.finished = false;
+    this.mainBuffer = null; this.karaokeBuffer = null;
+    this.offset = 0; this.finished = false;
     try {
-      const asset = Asset.fromModule(source);
-      const res = await fetch(asset.uri);
-      const ab = await res.arrayBuffer();
-      const buf = await this.ctx.decodeAudioData(ab);
+      const dec = async (src: number) => {
+        const asset = Asset.fromModule(src);
+        const res = await fetch(asset.uri);
+        return this.ctx.decodeAudioData(await res.arrayBuffer());
+      };
+      const [main, karaoke] = await Promise.all([
+        dec(source),
+        karaokeSource != null
+          ? dec(karaokeSource).catch(err => { console.warn('[waveback] karaoke track failed to load', err); return null; })
+          : Promise.resolve(null),
+      ]);
       if (token !== this.loadToken) return;
-      this.buffer = buf;
+      this.mainBuffer = main; this.karaokeBuffer = karaoke;
       if (this.pendingPlay) { this.pendingPlay = false; this.play(); }
     } catch (err) {
       if (token === this.loadToken) console.warn('[waveback] failed to load audio', err);
@@ -308,14 +350,30 @@ class EraEngine {
     if (this.playing) { this.stopSrc(); this.start(); }
   }
 
+  // With a real instrumental the karaoke era needs no DSP — route it flat.
+  private routeBus(): void {
+    const chainKey: EraKey = this.active === 'karaoke' && this.karaokeBuffer ? 'flat' : this.active;
+    this.bus.disconnect();
+    this.bus.connect(this.chains[chainKey].input);
+    this.routedChain = chainKey;
+  }
+
   setEra(era: EraId | null): void {
     const key: EraKey = (era && ERA_TO_KEY[era]) || 'flat';
     if (key === this.active) return;
-    this.chains[this.active].noise?.stop();
-    this.bus.disconnect();
+    const pos = this.now();
+    const prevBuffer = this.buffer;
+    this.chains[this.routedChain].noise?.stop();
     this.active = key;
-    this.bus.connect(this.chains[key].input);
-    if (this.playing) this.chains[key].noise?.start();
+    this.routeBus();
+    if (!this.playing) return;
+    if (this.buffer !== prevBuffer) { // swap master ↔ instrumental at the same position
+      this.offset = pos;
+      this.stopSrc();
+      this.start();
+    } else {
+      this.chains[this.routedChain].noise?.start();
+    }
   }
 
   now(): number {
@@ -325,6 +383,7 @@ class EraEngine {
   }
 
   private start(): void {
+    this.routeBus(); // reconcile routing with any late-decoded instrumental
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffer!;
     src.connect(this.bus);
@@ -334,14 +393,14 @@ class EraEngine {
       this.playing = false;
       this.offset = this.buffer?.duration ?? this.offset;
       this.finished = true;
-      this.chains[this.active].noise?.stop();
+      this.chains[this.routedChain].noise?.stop();
       this.onFinish?.();
     };
     src.start(0, Math.min(this.offset, this.buffer!.duration));
     this.src = src;
     this.startedAt = this.ctx.currentTime;
     this.playing = true;
-    this.chains[this.active].noise?.start();
+    this.chains[this.routedChain].noise?.start();
   }
 
   private stopSrc(): void {
@@ -351,7 +410,7 @@ class EraEngine {
       try { s.stop(); } catch {}
       s.disconnect();
     }
-    this.chains[this.active].noise?.stop();
+    this.chains[this.routedChain].noise?.stop();
   }
 }
 
@@ -364,16 +423,16 @@ const getEngine = (): EraEngine => {
   return engine;
 };
 
-export function useWavebackAudio(source: number | null): WavebackAudioApi {
+export function useWavebackAudio(source: number | null, karaokeSource?: number | null): WavebackAudioApi {
   const [currentTime, setCurrentTime] = useState(0);
   const [didJustFinish, setDidJustFinish] = useState(false);
   const eng = useRef<EraEngine | undefined>(undefined);
   eng.current ??= getEngine();
 
   useEffect(() => {
-    if (source != null) void eng.current!.load(source);
+    if (source != null) void eng.current!.load(source, karaokeSource);
     else eng.current!.pause();
-  }, [source]);
+  }, [source, karaokeSource]);
 
   useEffect(() => {
     const e = eng.current!;
