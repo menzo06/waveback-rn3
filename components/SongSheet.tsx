@@ -98,13 +98,15 @@ export default function SongSheet({
               placeholderTextColor={T.dim} className="flex-1 font-sans text-[13px] p-0"
               style={{ color: T.ink }} />
           </View>
-          <Pressable onPress={onAddSong} accessibilityRole="button" accessibilityLabel="Add audio file"
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={({ pressed }) => ({ backgroundColor: T.plate, borderWidth: 1.5, borderColor: 'rgba(233,162,59,0.5)', transform: [{ scale: pressed ? 0.92 : 1 }] })}>
-            <Svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke={WB.amber} strokeWidth={1.8} strokeLinecap="round">
-              <Path d="M8 2.5v11" /><Path d="M2.5 8h11" />
-            </Svg>
-          </Pressable>
+          {onAddSong && (
+            <Pressable onPress={onAddSong} accessibilityRole="button" accessibilityLabel="Add audio file"
+              className="w-10 h-10 rounded-full items-center justify-center"
+              style={({ pressed }) => ({ backgroundColor: T.plate, borderWidth: 1.5, borderColor: 'rgba(233,162,59,0.5)', transform: [{ scale: pressed ? 0.92 : 1 }] })}>
+              <Svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke={WB.amber} strokeWidth={1.8} strokeLinecap="round">
+                <Path d="M8 2.5v11" /><Path d="M2.5 8h11" />
+              </Svg>
+            </Pressable>
+          )}
         </View>
         <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
         {visibleSongs.map(({ sg, i }) => {
