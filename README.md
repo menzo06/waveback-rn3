@@ -38,3 +38,4 @@ Scan the QR with Expo Go (or press `i` / `a` for a simulator). Everything — Ex
 - Grain requires the optional texture asset (see above).
 - Selected past-era glyphs animate: DC spins the cassette reels individually; RN rocks the cassette body instead (native-driver loop, no per-reel SVG animation).
 - Haptics suggestion: `Haptics.selectionAsync()` on era pick feels great — not included to keep deps minimal.
+# waveback
