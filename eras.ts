@@ -1,11 +1,10 @@
-export type EraId = 'CLEAN' | 'MASTER' | 'ULTRA' | 'VINYL' | 'RADIO' | 'CASSETTE';
+export type EraId = 'CLEAN' | 'MASTER' | 'VINYL' | 'RADIO' | 'CASSETTE';
 
 export interface EraDef { id: EraId; label: string; sub: string; pill: string; rank: number; }
 
 export const TIME_UP: EraDef[] = [
-  { id: 'CLEAN',  label: 'CLEAN',  sub: 'DENOISED',    pill: 'CLEAN · DENOISED',    rank: 1 },
-  { id: 'MASTER', label: 'MASTER', sub: 'AI RESTORED', pill: 'MASTER · AI RESTORED', rank: 2 },
-  { id: 'ULTRA',  label: 'ULTRA',  sub: 'UPSCALED',    pill: 'ULTRA · UPSCALED',    rank: 3 },
+  { id: 'CLEAN',  label: 'KARAOKE', sub: 'SING ALONG',  pill: 'KARAOKE · SING ALONG', rank: 1 },
+  { id: 'MASTER', label: 'MIXING',  sub: 'AI RESTORED', pill: 'MIXING · AI RESTORED', rank: 2 },
 ];
 
 export const TIME_DOWN: EraDef[] = [
