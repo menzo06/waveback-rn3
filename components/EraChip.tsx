@@ -16,14 +16,18 @@ export default function EraChip({ era, active, plate, mut, beatMs, playing, onPr
     const duration = era.id === 'VINYL' ? (playing ? beatMs * 4 : 2400)
       : era.id === 'RADIO' ? (playing ? beatMs : 900)
       : (playing ? beatMs * 2 : 1200);
-    const loop = Animated.loop(Animated.timing(anim, {
-      toValue: 1,
-      duration,
-      easing: era.id === 'VINYL' ? Easing.linear : Easing.inOut(Easing.ease),
-      useNativeDriver: true,
-    }));
-    loop.start();
-    return () => loop.stop();
+    let alive = true; // self-restarting: Animated.loop is one-shot on react-native-web
+    const run = () => {
+      anim.setValue(0);
+      Animated.timing(anim, {
+        toValue: 1,
+        duration,
+        easing: era.id === 'VINYL' ? Easing.linear : Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }).start(({ finished }) => { if (alive && finished) run(); });
+    };
+    run();
+    return () => { alive = false; anim.stopAnimation(); };
   }, [active, era.id, era.rank, beatMs, playing, anim]);
   const rotate = era.id === 'VINYL'
     ? anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })

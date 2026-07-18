@@ -131,12 +131,15 @@ export default function WavebackScreen({
   const blink = useRef(new Animated.Value(0.25)).current;
   useEffect(() => {
     if (!processing) return;
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(blink, { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.timing(blink, { toValue: 0.25, duration: 400, useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
+    let alive = true; // self-restarting: Animated.loop is one-shot on react-native-web
+    const run = () => {
+      Animated.sequence([
+        Animated.timing(blink, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(blink, { toValue: 0.25, duration: 400, useNativeDriver: true }),
+      ]).start(({ finished }) => { if (alive && finished) run(); });
+    };
+    run();
+    return () => { alive = false; blink.stopAnimation(); };
   }, [processing, blink]);
 
   const Hairline = useMemo(() => () => (

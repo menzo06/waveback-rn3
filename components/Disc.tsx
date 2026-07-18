@@ -31,11 +31,13 @@ export default function Disc({ size, bg, playing, processing, spinSeconds, rippl
     if (!playing) return;
     const from = angle.current;
     spin.setValue(from);
-    const loop = Animated.loop(
-      Animated.timing(spin, { toValue: from + 1, duration: spinSeconds * 1000, easing: Easing.linear, useNativeDriver: true })
-    );
-    loop.start();
-    return () => loop.stop();
+    // One ultra-long linear timing (~10h of revolutions): Animated.loop only
+    // runs a single iteration on react-native-web, which froze the disc.
+    const anim = Animated.timing(spin, {
+      toValue: from + 3600, duration: spinSeconds * 1000 * 3600, easing: Easing.linear, useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
   }, [playing, spinSeconds, spin]);
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
@@ -50,17 +52,20 @@ export default function Disc({ size, bg, playing, processing, spinSeconds, rippl
     )).start();
   }, [rippleKey, rippleDir, ripples]);
 
-  // Processing pulse on the outermost ring
+  // Processing pulse on the outermost ring (self-restarting — loop() is one-shot on web)
   const pulse = useRef(new Animated.Value(0.12)).current;
   useEffect(() => {
     if (!processing) { pulse.setValue(0); return; }
+    let alive = true;
+    const beat = () => {
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.92, duration: 500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.12, duration: 500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ]).start(({ finished }) => { if (alive && finished) beat(); });
+    };
     pulse.setValue(0.12);
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(pulse, { toValue: 0.92, duration: 500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      Animated.timing(pulse, { toValue: 0.12, duration: 500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
+    beat();
+    return () => { alive = false; pulse.stopAnimation(); };
   }, [processing, pulse]);
 
   // Era skin cross-fade

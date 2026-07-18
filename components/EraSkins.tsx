@@ -58,20 +58,30 @@ export function VinylSheen({ size }: { size: number }) {
 const TICKS = Array.from({ length: 33 }, (_, i) => -130 + i * 8.125);
 const FREQS = [54, 70, 90, 110, 130, 160]; // kc ÷ 10, like real AM dials
 
-// Fixed tuning dial over the label; needle drifts gently while playing
+// Fixed tuning dial over the label. The needle behaves like someone working
+// the tuning knob: it parks on a station, then sweeps to the next one with a
+// small settle-overshoot — not a gauge wobble.
+const STATIONS = [0.16, 0.68, 0.35, 0.82, 0.5, 0.1, 0.74, 0.27];
 export function RadioDial({ size, playing }: { size: number; playing: boolean }) {
   const dial = size * (152 / 340);
-  const wob = useRef(new Animated.Value(0)).current;
+  const pos = useRef(new Animated.Value(0.42)).current; // 0..1 across the dial arc
   useEffect(() => {
     if (!playing) return;
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(wob, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      Animated.timing(wob, { toValue: 0, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, [playing, wob]);
-  const rot = wob.interpolate({ inputRange: [0, 1], outputRange: ['31deg', '39deg'] });
+    let alive = true;
+    let i = 0;
+    const hop = () => {
+      Animated.sequence([
+        Animated.delay(2400), // sit on the station a while
+        Animated.timing(pos, {
+          toValue: STATIONS[i++ % STATIONS.length], duration: 1100,
+          easing: Easing.out(Easing.back(1.3)), useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => { if (alive && finished) hop(); });
+    };
+    hop();
+    return () => { alive = false; pos.stopAnimation(); };
+  }, [playing, pos]);
+  const rot = pos.interpolate({ inputRange: [0, 1], outputRange: ['-118deg', '118deg'] });
 
   return (
     <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
@@ -119,11 +129,11 @@ function Reel({ unit, cx, cy, duration, playing }: {
   const spin = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!playing) return;
-    const loop = Animated.loop(
-      Animated.timing(spin, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true })
-    );
-    loop.start();
-    return () => { loop.stop(); spin.setValue(0); };
+    // One long linear timing — Animated.loop is one-shot on react-native-web
+    spin.setValue(0);
+    const anim = Animated.timing(spin, { toValue: 3600, duration: duration * 3600, easing: Easing.linear, useNativeDriver: true });
+    anim.start();
+    return () => anim.stop();
   }, [playing, duration, spin]);
   const rot = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const box = 26 * unit;

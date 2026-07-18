@@ -267,7 +267,7 @@ class EraEngine {
     sag.connect(sagDepth); sagDepth.connect(out.gain); sag.start();
     // Hiss lives in the 3–10 kHz band, above the programme's shelved highs.
     const hissColor = this.biquad('highpass', 3000, 0.7);
-    const noiseGain = this.ctx.createGain(); noiseGain.gain.value = 0.24;
+    const noiseGain = this.ctx.createGain(); noiseGain.gain.value = 0.11;
     noiseGain.connect(hissColor); hissColor.connect(lp);
     return { input, noise: this.loopNoise(() => this.makeHissNoise(), noiseGain) };
   }
