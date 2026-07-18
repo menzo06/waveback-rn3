@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Image, ImageSourcePropType, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { WB } from '../theme';
+import { EraId } from '../eras';
+import { CassetteReels, RadioDial, VinylRotating, VinylSheen } from './EraSkins';
 
 const RIPPLE_MS = 620;
 
@@ -13,10 +15,10 @@ const RINGS = [
   { r: 156, w: 16, c: WB.amber },
 ];
 
-export default function Disc({ size, bg, playing, processing, spinSeconds, rippleKey, rippleDir, cover, children }: {
+export default function Disc({ size, bg, playing, processing, spinSeconds, rippleKey, rippleDir, cover, era, children }: {
   size: number; bg: string; playing: boolean; processing: boolean; spinSeconds: number;
   rippleKey: number; rippleDir: 'in' | 'out';
-  cover?: ImageSourcePropType; children?: React.ReactNode;
+  cover?: ImageSourcePropType; era?: EraId | null; children?: React.ReactNode;
 }) {
   // Rotation — resumes from current angle on play/pause
   const spin = useRef(new Animated.Value(0)).current;
@@ -61,6 +63,15 @@ export default function Disc({ size, bg, playing, processing, spinSeconds, rippl
     return () => loop.stop();
   }, [processing, pulse]);
 
+  // Era skin cross-fade
+  const skinFade = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    skinFade.setValue(0);
+    Animated.timing(skinFade, { toValue: 1, duration: 450, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
+  }, [era, skinFade]);
+  const skinLayer = { position: 'absolute' as const, width: size, height: size, opacity: skinFade };
+  const dimRings = era === 'RADIO' || era === 'CASSETTE';
+
   const coverSize = size * (148 / 340);
   return (
     <View style={{ width: size, height: size }}>
@@ -87,7 +98,21 @@ export default function Disc({ size, bg, playing, processing, spinSeconds, rippl
             </Svg>
           </Animated.View>
         )}
-        {/* Cover art = record label */}
+        {/* Era skin — rotating pieces */}
+        {era === 'VINYL' && (
+          <Animated.View style={skinLayer} pointerEvents="none">
+            <VinylRotating size={size} />
+          </Animated.View>
+        )}
+        {dimRings && (
+          <Animated.View style={skinLayer} pointerEvents="none">
+            <Svg width={size} height={size} viewBox="0 0 340 340">
+              <Circle cx={170} cy={170} r={170}
+                fill={era === 'RADIO' ? 'rgba(15,10,7,0.5)' : 'rgba(24,16,10,0.4)'} />
+            </Svg>
+          </Animated.View>
+        )}
+        {/* Cover art = record label — always visible; era skins overlay it */}
         <View className="absolute inset-0 items-center justify-center">
           <View className="rounded-full overflow-hidden items-center justify-center"
             style={{ width: coverSize, height: coverSize, backgroundColor: WB.plate }}>
@@ -101,9 +126,29 @@ export default function Disc({ size, bg, playing, processing, spinSeconds, rippl
                   style={{ color: 'rgba(245,234,208,0.4)', letterSpacing: 1.6 }}>COVER ART</Text>
               </>
             )}
+            {era === 'VINYL' && (
+              <Animated.View className="absolute inset-0 rounded-full"
+                style={{ backgroundColor: 'rgba(46,30,16,0.45)', opacity: skinFade }} pointerEvents="none" />
+            )}
           </View>
         </View>
       </Animated.View>
+      {/* Era skin — fixed pieces (don't rotate with the record) */}
+      {era === 'VINYL' && (
+        <Animated.View style={skinLayer} pointerEvents="none">
+          <VinylSheen size={size} />
+        </Animated.View>
+      )}
+      {era === 'RADIO' && (
+        <Animated.View style={skinLayer} pointerEvents="none">
+          <RadioDial size={size} playing={playing} />
+        </Animated.View>
+      )}
+      {era === 'CASSETTE' && (
+        <Animated.View style={skinLayer} pointerEvents="none">
+          <CassetteReels size={size} playing={playing} />
+        </Animated.View>
+      )}
       {children /* non-rotating overlay */}
     </View>
   );
