@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { useWavebackAudio } from './audio/useWavebackAudio';
 import { WB, WavebackTheme, tone } from './theme';
 import { EraId, TIME_UP, TIME_DOWN, ALL_ERAS, rankOf } from './eras';
 import { Song, SONGS, fmt } from './songs';
@@ -41,20 +42,42 @@ export default function WavebackScreen({
   const [ripple, setRipple] = useState(0);
   const [dir, setDir] = useState<'in' | 'out'>('in');
   const [trackW, setTrackW] = useState(0);
+  const trackRef = useRef<View>(null);
   const procTimer = useRef<ReturnType<typeof setTimeout>>();
   const song = songs[songIdx];
   const dur = song.dur;
+  const hasAudio = !!song.audio;
+  const audio = useWavebackAudio(song.audio ?? null, song.karaokeAudio ?? null);
 
-  // Playback clock
+  // Era chip → audio processing (TIME DOWN eras sound like their device; web only for now)
   useEffect(() => {
-    if (!playing || processing) return;
+    audio.setEra(era);
+  }, [era]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the player in sync with play/pause state (paused while "processing" an era jump)
+  useEffect(() => {
+    if (!hasAudio) return;
+    if (playing && !processing) audio.play();
+    else audio.pause();
+  }, [playing, processing, hasAudio, songIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Real playback position
+  useEffect(() => {
+    if (!hasAudio) return;
+    if (Number.isFinite(audio.currentTime)) setT(Math.min(dur, audio.currentTime));
+    if (audio.didJustFinish) setPlaying(false);
+  }, [audio.currentTime, audio.didJustFinish, hasAudio, dur]);
+
+  // Simulated playback clock for songs without an audio file
+  useEffect(() => {
+    if (!playing || processing || hasAudio) return;
     const iv = setInterval(() => setT(prev => {
       const nt = Math.min(dur, prev + 0.25);
       if (nt >= dur) setPlaying(false);
       return nt;
     }), 250);
     return () => clearInterval(iv);
-  }, [playing, processing, dur]);
+  }, [playing, processing, dur, hasAudio]);
   useEffect(() => () => clearTimeout(procTimer.current), []);
 
   const pick = (id: EraId) => {
@@ -68,7 +91,10 @@ export default function WavebackScreen({
     procTimer.current = setTimeout(() => setProcessing(false), PROCESS_MS);
   };
 
-  const togglePlay = () => setPlaying(p => { if (!p && t >= dur) setT(0); return !p; });
+  const togglePlay = () => {
+    if (!playing && t >= dur) { setT(0); if (hasAudio) audio.seekTo(0); }
+    setPlaying(p => !p);
+  };
   const pickSong = (i: number) => { setSongIdx(i); setT(0); setSheetOpen(false); };
   const activePlaylist = playlists.find(p => p.id === activePlaylistId);
   const queue = activePlaylist?.songIndexes.length ? activePlaylist.songIndexes : songs.map((_, index) => index);
@@ -149,15 +175,18 @@ export default function WavebackScreen({
           <Hairline />
         </View>
         <View className="flex-row justify-center gap-3 px-4">
-          {TIME_UP.map(e => (
-            <EraChip key={e.id} era={e} active={era === e.id} plate={T.plate} mut={T.mut} beatMs={beatMs} playing={playing} onPress={() => pick(e.id)} />
+          {TIME_UP.map((e, i) => (
+            <React.Fragment key={e.id}>
+              {i > 0 && <View className="w-[106px]" /> /* keep the outer positions; the disc owns the middle */}
+              <EraChip era={e} active={era === e.id} plate={T.plate} mut={T.mut} beatMs={beatMs} playing={playing} onPress={() => pick(e.id)} />
+            </React.Fragment>
           ))}
         </View>
 
         {/* Player */}
         <View className="flex-1 items-center justify-center gap-[15px]">
           <Disc size={300} bg={T.bg} playing={playing} processing={processing} spinSeconds={spinSeconds}
-            rippleKey={ripple} rippleDir={dir} cover={cover ?? song.cover} />
+            rippleKey={ripple} rippleDir={dir} cover={cover ?? song.cover} era={era} />
 
           <View className="items-center px-[30px]">
             <View className="items-center px-[30px] mb-[5px]">
@@ -210,9 +239,17 @@ export default function WavebackScreen({
 
         {/* Timeline groove */}
         <View className="px-10 mt-[6px]">
-          <Pressable className="h-6 justify-center"
+          <Pressable ref={trackRef} className="h-6 justify-center"
             onLayout={(e: LayoutChangeEvent) => setTrackW(e.nativeEvent.layout.width)}
-            onPress={e => trackW && setT(Math.max(0, Math.min(1, e.nativeEvent.locationX / trackW)) * dur)}
+            onPress={e => {
+              const pageX = e.nativeEvent.pageX; // locationX is unreliable on web
+              trackRef.current?.measureInWindow((wx, _wy, w) => {
+                if (!w || !Number.isFinite(pageX)) return;
+                const nt = Math.max(0, Math.min(1, (pageX - wx) / w)) * dur;
+                setT(nt);
+                if (hasAudio) audio.seekTo(nt);
+              });
+            }}
           >
             <View className="h-[5px] rounded-[3px]" style={{ backgroundColor: T.track }} />
             <View className="absolute h-[5px] rounded-l-[3px]"

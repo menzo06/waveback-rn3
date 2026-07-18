@@ -1,6 +1,6 @@
 import { ImageSourcePropType } from 'react-native';
 
-export interface Song { title: string; artist: string; dur: number; bpm?: number; cover?: ImageSourcePropType; }
+export interface Song { title: string; artist: string; dur: number; bpm?: number; cover?: ImageSourcePropType; audio?: number; karaokeAudio?: number; }
 
 export const SONGS: Song[] = [
   { title: 'Afterglow', artist: 'Vera & The Volts', dur: 222, bpm: 112, cover: require('./assets/label-0.png') },
@@ -11,6 +11,7 @@ export const SONGS: Song[] = [
   { title: 'Rearview Bloom', artist: 'Cassette Motel', dur: 187, bpm: 88, cover: require('./assets/label-5.png') },
   { title: 'Static & Honey', artist: 'The Bakelites', dur: 229, bpm: 124, cover: require('./assets/label-6.png') },
   { title: 'Paper Moon Parade', artist: 'Dot & The Dashes', dur: 205, bpm: 108, cover: require('./assets/label-7.png') },
+  { title: 'Hotel California', artist: 'Eagles', dur: 391, bpm: 74, cover: require('./assets/hotel-california.jpg'), audio: require('./assets/hotel-california.mp3'), karaokeAudio: require('./assets/hotel-california-instrumental.mp3') },
 ];
 
 export const fmt = (x: number) => `${Math.floor(x / 60)}:${`${Math.floor(x % 60)}`.padStart(2, '0')}`;

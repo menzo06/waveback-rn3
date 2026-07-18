@@ -1,31 +1,20 @@
 import React from 'react';
-import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { EraId } from '../eras';
 
 // Era glyphs, tinted via `color`
 export default function Glyph({ id, color }: { id: EraId; color: string }) {
   switch (id) {
-    case 'CLEAN': return ( // broom, sweeping top-left → bottom-right
+    case 'CLEAN': return ( // handheld karaoke mic, angled
       <Svg width={22} height={22} viewBox="0 0 20 20" fill="none" stroke={color} strokeLinecap="round">
-        <Path d="M1.9 1.9 L10.4 10.4" strokeWidth={1.6} />
-        <Path d="M13.2 9.4 L9.4 13.2" strokeWidth={2.4} />
-        <Path d="M12.9 10.6 L18.3 12.9" strokeWidth={1.5} />
-        <Path d="M12.4 11.2 L17.7 14.8" strokeWidth={1.5} />
-        <Path d="M11.9 11.9 L16.9 16.9" strokeWidth={1.5} />
-        <Path d="M11.2 12.4 L14.8 17.7" strokeWidth={1.5} />
-        <Path d="M10.6 12.9 L12.9 18.3" strokeWidth={1.5} />
+        <Circle cx={13.2} cy={6.8} r={4.2} strokeWidth={1.5} />
+        <Path d="M9.8 5.4 L16.6 5.4" strokeWidth={1.1} />
+        <Path d="M10.1 8.2 L16.3 8.2" strokeWidth={1.1} />
+        <Path d="M10.1 9.9 L3.6 16.4" strokeWidth={2.8} />
       </Svg>);
     case 'MASTER': return ( // four-point star
       <Svg width={18} height={18} viewBox="0 0 18 18" fill={color}>
         <Path d="M9 0.9 Q10.2 7.8 17.1 9 Q10.2 10.2 9 17.1 Q7.8 10.2 0.9 9 Q7.8 7.8 9 0.9 Z" />
-      </Svg>);
-    case 'ULTRA': return ( // atomic synthesis core
-      <Svg width={20} height={20} viewBox="0 0 18 18" fill="none" stroke={color}>
-        <Ellipse cx={9} cy={9} rx={7.2} ry={2.9} transform="rotate(32 9 9)" strokeWidth={1.3} />
-        <Ellipse cx={9} cy={9} rx={7.2} ry={2.9} transform="rotate(-32 9 9)" strokeWidth={1.3} />
-        <Circle cx={9} cy={9} r={1.7} fill={color} stroke="none" />
-        <Circle cx={15.1} cy={12.8} r={0.95} fill={color} stroke="none" />
-        <Circle cx={2.9} cy={12.8} r={0.95} fill={color} stroke="none" />
       </Svg>);
     case 'VINYL': return ( // record with orbit dot so rotation reads
       <Svg width={18} height={18} viewBox="0 0 18 18" fill="none" stroke={color}>
