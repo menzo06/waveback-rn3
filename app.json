@@ -1,13 +1,9 @@
 {
   "expo": {
-    "name": "Waveback",
-    "slug": "waveback",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#1C1410",
-    "splash": {
-      "backgroundColor": "#1C1410"
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "Waveback",
+      "shortName": "Waveback"
     },
     "ios": {
       "supportsTablet": false

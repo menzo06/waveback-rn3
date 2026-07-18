@@ -8,6 +8,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { WB, WavebackTheme, tone } from './theme';
 import { EraId, TIME_UP, TIME_DOWN, ALL_ERAS, rankOf } from './eras';
 import { Song, SONGS, fmt } from './songs';
+import { Playlist } from './playlists';
 import EraChip from './components/EraChip';
 import Disc from './components/Disc';
 import SongSheet from './components/SongSheet';
@@ -34,6 +35,8 @@ export default function WavebackScreen({
   const [processing, setProcessing] = useState(false);
   const [t, setT] = useState(47);
   const [songIdx, setSongIdx] = useState(0);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [ripple, setRipple] = useState(0);
   const [dir, setDir] = useState<'in' | 'out'>('in');
@@ -67,7 +70,29 @@ export default function WavebackScreen({
 
   const togglePlay = () => setPlaying(p => { if (!p && t >= dur) setT(0); return !p; });
   const pickSong = (i: number) => { setSongIdx(i); setT(0); setSheetOpen(false); };
-  const skip = (d: number) => pickSong((songIdx + d + songs.length) % songs.length);
+  const activePlaylist = playlists.find(p => p.id === activePlaylistId);
+  const queue = activePlaylist?.songIndexes.length ? activePlaylist.songIndexes : songs.map((_, index) => index);
+  const skip = (d: number) => {
+    const current = Math.max(0, queue.indexOf(songIdx));
+    pickSong(queue[(current + d + queue.length) % queue.length]);
+  };
+  const createPlaylist = (name: string): string | null => {
+    const cleanName = name.trim();
+    if (!cleanName) return null;
+    const playlist = { id: `${Date.now()}-${cleanName}`, name: cleanName, songIndexes: [] };
+    setPlaylists(current => [...current, playlist]);
+    setActivePlaylistId(playlist.id);
+    return playlist.id;
+  };
+  const toggleSongInPlaylist = (playlistId: string, index: number) => {
+    setPlaylists(current => current.map(playlist => {
+      if (playlist.id !== playlistId) return playlist;
+      const included = playlist.songIndexes.includes(index);
+      return { ...playlist, songIndexes: included
+        ? playlist.songIndexes.filter(songIndex => songIndex !== index)
+        : [...playlist.songIndexes, index] };
+    }));
+  };
 
   const pillText = processing
     ? (era ? (dir === 'out' ? 'REWINDING…' : 'RESTORING…') : 'RETURNING…')
@@ -223,6 +248,9 @@ export default function WavebackScreen({
 
       <SongSheet visible={sheetOpen} onClose={() => setSheetOpen(false)}
         songs={songs} songIdx={songIdx} onPick={pickSong} onAddSong={onAddSong}
+        playlists={playlists} activePlaylistId={activePlaylistId}
+        onSelectPlaylist={setActivePlaylistId} onCreatePlaylist={createPlaylist}
+        onToggleSongInPlaylist={toggleSongInPlaylist}
         theme={theme} T={T} />
     </SafeAreaView>
   );
