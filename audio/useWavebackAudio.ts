@@ -5,7 +5,7 @@ import type { WavebackAudioApi } from './types';
 
 // Native: plain expo-audio playback. Era colouring lives in useWavebackAudio.web.ts;
 // bringing it to iOS/Android needs a DSP-capable library (e.g. react-native-audio-api).
-export function useWavebackAudio(source: number | null, _karaokeSource?: number | null): WavebackAudioApi {
+export function useWavebackAudio(source: number | null, _karaokeSource?: number | null, _mixedSource?: number | null): WavebackAudioApi {
   const player = useAudioPlayer(null, { updateInterval: 250 });
   const status = useAudioPlayerStatus(player);
 

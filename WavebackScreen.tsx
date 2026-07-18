@@ -28,7 +28,7 @@ export interface WavebackScreenProps {
 
 export default function WavebackScreen({
   theme = 'espresso', spinSeconds = 7, songs = SONGS,
-  cover, grainTexture, initialEra = 'MASTER', onAddSong,
+  cover, grainTexture, initialEra = null, onAddSong,
 }: WavebackScreenProps) {
   const T = tone(theme);
   const [era, setEra] = useState<EraId | null>(initialEra);
@@ -47,7 +47,7 @@ export default function WavebackScreen({
   const song = songs[songIdx];
   const dur = song.dur;
   const hasAudio = !!song.audio;
-  const audio = useWavebackAudio(song.audio ?? null, song.karaokeAudio ?? null);
+  const audio = useWavebackAudio(song.audio ?? null, song.karaokeAudio ?? null, song.mixedAudio ?? null);
 
   // Era chip → audio processing (TIME DOWN eras sound like their device; web only for now)
   useEffect(() => {
@@ -81,6 +81,7 @@ export default function WavebackScreen({
   useEffect(() => () => clearTimeout(procTimer.current), []);
 
   const pick = (id: EraId) => {
+    if (id === 'MASTER' && era !== 'MASTER' && !song.mixedAudio) return; // MIXING only turns on for songs with a mix
     const next = era === id ? null : id;
     if (rankOf(next) === rankOf(era)) return;
     setDir(rankOf(next) < rankOf(era) ? 'out' : 'in'); // down in time → outward

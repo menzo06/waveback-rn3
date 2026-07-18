@@ -26,13 +26,14 @@ import type { WavebackAudioApi } from './types';
  * MASTER (MIXING) and no era play the file untouched (flat chain).
  */
 
-type EraKey = 'flat' | 'vinyl' | 'radio' | 'cassette' | 'karaoke';
+type EraKey = 'flat' | 'vinyl' | 'radio' | 'cassette' | 'karaoke' | 'mixed';
 
 const ERA_TO_KEY: Partial<Record<EraId, EraKey>> = {
   VINYL: 'vinyl',
   RADIO: 'radio',
   CASSETTE: 'cassette',
   CLEAN: 'karaoke', // KARAOKE · SING ALONG chip keeps the legacy CLEAN id
+  MASTER: 'mixed',  // MIXING · AI RESTORED chip keeps the legacy MASTER id
 };
 
 interface NoiseLoop { start(): void; stop(): void; }
@@ -47,7 +48,8 @@ class EraEngine {
   active: EraKey = 'flat';
 
   private mainBuffer: AudioBuffer | null = null;
-  private karaokeBuffer: AudioBuffer | null = null; // pre-separated instrumental, time-aligned
+  private karaokeBuffer: AudioBuffer | null = null; // karaoke version, time-aligned
+  private mixedBuffer: AudioBuffer | null = null;   // user's own mix, time-aligned
   private routedChain: EraKey = 'flat';
   private src: AudioBufferSourceNode | null = null;
   private offset = 0;
@@ -72,6 +74,7 @@ class EraEngine {
       radio: this.buildRadio(),
       cassette: this.buildCassette(),
       karaoke: this.buildKaraoke(),
+      mixed: this.buildFlat(), // mixed version is a different recording, played untouched
     };
     this.bus.connect(this.chains.flat.input);
   }
@@ -295,17 +298,19 @@ class EraEngine {
 
   // ---- transport ----------------------------------------------------------
 
-  // The buffer the current era should sound like: the KARAOKE chip plays the
-  // real instrumental when the song ships one; everything else plays the master.
+  // The buffer the current era should sound like: KARAOKE plays the karaoke
+  // version, MIXING plays the user's own mix — when the song ships one.
   private get buffer(): AudioBuffer | null {
-    return this.active === 'karaoke' && this.karaokeBuffer ? this.karaokeBuffer : this.mainBuffer;
+    if (this.active === 'karaoke' && this.karaokeBuffer) return this.karaokeBuffer;
+    if (this.active === 'mixed' && this.mixedBuffer) return this.mixedBuffer;
+    return this.mainBuffer;
   }
 
-  async load(source: number, karaokeSource?: number | null): Promise<void> {
+  async load(source: number, karaokeSource?: number | null, mixedSource?: number | null): Promise<void> {
     const token = ++this.loadToken;
     this.stopSrc();
     this.playing = false;
-    this.mainBuffer = null; this.karaokeBuffer = null;
+    this.mainBuffer = null; this.karaokeBuffer = null; this.mixedBuffer = null;
     this.offset = 0; this.finished = false;
     try {
       const dec = async (src: number) => {
@@ -313,14 +318,15 @@ class EraEngine {
         const res = await fetch(asset.uri);
         return this.ctx.decodeAudioData(await res.arrayBuffer());
       };
-      const [main, karaoke] = await Promise.all([
-        dec(source),
-        karaokeSource != null
-          ? dec(karaokeSource).catch(err => { console.warn('[waveback] karaoke track failed to load', err); return null; })
-          : Promise.resolve(null),
+      const opt = (src?: number | null, label = 'alternate') =>
+        src != null
+          ? dec(src).catch(err => { console.warn(`[waveback] ${label} track failed to load`, err); return null; })
+          : Promise.resolve(null);
+      const [main, karaoke, mixed] = await Promise.all([
+        dec(source), opt(karaokeSource, 'karaoke'), opt(mixedSource, 'mixed'),
       ]);
       if (token !== this.loadToken) return;
-      this.mainBuffer = main; this.karaokeBuffer = karaoke;
+      this.mainBuffer = main; this.karaokeBuffer = karaoke; this.mixedBuffer = mixed;
       if (this.pendingPlay) { this.pendingPlay = false; this.play(); }
     } catch (err) {
       if (token === this.loadToken) console.warn('[waveback] failed to load audio', err);
@@ -423,16 +429,16 @@ const getEngine = (): EraEngine => {
   return engine;
 };
 
-export function useWavebackAudio(source: number | null, karaokeSource?: number | null): WavebackAudioApi {
+export function useWavebackAudio(source: number | null, karaokeSource?: number | null, mixedSource?: number | null): WavebackAudioApi {
   const [currentTime, setCurrentTime] = useState(0);
   const [didJustFinish, setDidJustFinish] = useState(false);
   const eng = useRef<EraEngine | undefined>(undefined);
   eng.current ??= getEngine();
 
   useEffect(() => {
-    if (source != null) void eng.current!.load(source, karaokeSource);
+    if (source != null) void eng.current!.load(source, karaokeSource, mixedSource);
     else eng.current!.pause();
-  }, [source, karaokeSource]);
+  }, [source, karaokeSource, mixedSource]);
 
   useEffect(() => {
     const e = eng.current!;

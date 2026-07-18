@@ -1,17 +1,12 @@
 import { ImageSourcePropType } from 'react-native';
 
-export interface Song { title: string; artist: string; dur: number; bpm?: number; cover?: ImageSourcePropType; audio?: number; karaokeAudio?: number; }
+export interface Song { title: string; artist: string; dur: number; bpm?: number; cover?: ImageSourcePropType; audio?: number; karaokeAudio?: number; mixedAudio?: number; }
 
 export const SONGS: Song[] = [
-  { title: 'Afterglow', artist: 'Vera & The Volts', dur: 222, bpm: 112, cover: require('./assets/label-0.png') },
-  { title: 'Slow Motion Summer', artist: 'The Canyon Lights', dur: 258, bpm: 96, cover: require('./assets/label-1.png') },
-  { title: 'Marigold', artist: 'Roman Holiday Radio', dur: 194, bpm: 132, cover: require('./assets/label-2.png') },
-  { title: 'Dial Tone Dreams', artist: 'Peach Static', dur: 241, bpm: 104, cover: require('./assets/label-3.png') },
-  { title: 'Golden Hour Getaway', artist: 'The Sundial Set', dur: 213, bpm: 118, cover: require('./assets/label-4.png') },
-  { title: 'Rearview Bloom', artist: 'Cassette Motel', dur: 187, bpm: 88, cover: require('./assets/label-5.png') },
-  { title: 'Static & Honey', artist: 'The Bakelites', dur: 229, bpm: 124, cover: require('./assets/label-6.png') },
-  { title: 'Paper Moon Parade', artist: 'Dot & The Dashes', dur: 205, bpm: 108, cover: require('./assets/label-7.png') },
   { title: 'Hotel California', artist: 'Eagles', dur: 391, bpm: 74, cover: require('./assets/hotel-california.jpg'), audio: require('./assets/hotel-california.mp3'), karaokeAudio: require('./assets/hotel-california-instrumental.mp3') },
+  { title: 'The Real Slim Shady', artist: 'Eminem', dur: 284, bpm: 104, cover: require('./assets/real-slim-shady.jpg'), audio: require('./assets/real-slim-shady.m4a'), karaokeAudio: require('./assets/real-slim-shady-karaoke.m4a') },
+  { title: 'Blinding Lights', artist: 'The Weeknd', dur: 203, bpm: 171, cover: require('./assets/blinding-lights.jpg'), audio: require('./assets/blinding-lights.m4a'), karaokeAudio: require('./assets/blinding-lights-karaoke.m4a') },
+  { title: "Ain't No Mountain High Enough", artist: 'Marvin Gaye & Tammi Terrell', dur: 152, bpm: 131, cover: require('./assets/aint-no-mountain.jpg'), audio: require('./assets/aint-no-mountain.m4a'), karaokeAudio: require('./assets/aint-no-mountain-karaoke.m4a'), mixedAudio: require('./assets/aint-no-mountain-mixed.m4a') },
 ];
 
 export const fmt = (x: number) => `${Math.floor(x / 60)}:${`${Math.floor(x % 60)}`.padStart(2, '0')}`;
